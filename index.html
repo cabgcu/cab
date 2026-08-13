@@ -243,6 +243,7 @@
     <main class="flex-grow flex flex-col items-center justify-start p-4 w-full max-w-4xl mx-auto relative z-0 mt-4 md:mt-10">
         
         <!-- Lobby UI -->
+        <img id="app-logo" src="https://i.imgur.com/p2qZOL5.png" alt="Cards Against Bad logo" class="h-20 md:h-24 w-auto mx-auto mb-6">
         <div id="lobby-ui" class="w-full max-w-md bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex flex-col items-center gap-6">
             <h2 class="text-2xl font-bold text-white">Join the Game</h2>
             
@@ -877,6 +878,7 @@
 
         // --- DOM ELEMENTS ---
         const lobbyUI = document.getElementById('lobby-ui');
+        const appLogo = document.getElementById('app-logo');
         const waitingRoomUI = document.getElementById('waiting-room-ui');
         const gameUI = document.getElementById('game-ui');
         const introUI = document.getElementById('intro-ui');
@@ -1002,6 +1004,7 @@
         function joinLocalRoom(code) {
              hideLobbyError();
              lobbyUI.classList.add('hidden');
+             appLogo.classList.add('hidden');
 
              // Setup realtime listener for this room's row
              roomChannel = supabase
@@ -1429,6 +1432,7 @@
              introUI.classList.remove('flex');
 
              lobbyUI.classList.remove('hidden');
+             appLogo.classList.remove('hidden');
              if(message) showAlert("Disconnected", message);
         }
 
