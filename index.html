@@ -351,11 +351,17 @@
 
             <!-- Controls -->
             <div class="flex justify-center gap-3 mt-6 w-full max-w-sm px-4 z-10">
-                <button onclick="toggleRules()" class="btn-primary flex-1 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-slate-300">
+                <button onclick="toggleRules()" aria-label="Rules" title="Rules" class="btn-primary shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-slate-300">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                     </svg>
-                    Rules
+                </button>
+                <button id="btn-skip-question" onclick="requestSkipQuestion()" class="btn-primary flex-1 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 15.707a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        <path fill-rule="evenodd" d="M10.293 15.707a1 1 0 010-1.414L14.586 10l-4.293-4.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    Skip
                 </button>
                 <button id="btn-next-turn" onclick="requestNextTurn()" class="btn-primary flex-1 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 bg-white text-black border-white hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white">
                     Next Turn
@@ -804,6 +810,39 @@
             } catch(e) { console.error("Error moving to next turn", e); }
         }
 
+        async function requestSkipQuestion() {
+            if (!currentRoomCode || !currentUser) return;
+
+            const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
+            if (!isMyTurn && !isHost) {
+                 showAlert("Not Your Turn", "Only the active player can skip the question.");
+                 return;
+            }
+
+            try {
+                const currentLevel = localGameState.level;
+                const usedQuestionsList = localGameState.usedQuestions[currentLevel] || [];
+
+                const q = getRandomQuestion(currentLevel, usedQuestionsList);
+
+                // Same "mark as used" bookkeeping as requestNextTurn, but the turn stays put.
+                let newUsedList = [...usedQuestionsList, q.text];
+                if (newUsedList.length >= questions[currentLevel].length) {
+                    newUsedList = []; // Reset if all used
+                }
+
+                const newUsedQuestions = { ...localGameState.usedQuestions, [currentLevel]: newUsedList };
+
+                const { error } = await supabase.from('rooms').update({
+                    is_flipped: true,
+                    current_question: q.text,
+                    card_key: Date.now(), // Trigger slide animation on all clients
+                    used_questions: newUsedQuestions
+                }).eq('code', currentRoomCode);
+                if (error) throw error;
+            } catch(e) { console.error("Error skipping question", e); }
+        }
+
         function getRandomQuestion(level, usedList) {
             const pool = questions[level];
             
@@ -939,6 +978,9 @@
             // 5. Update Controls
             const nextBtn = document.getElementById('btn-next-turn');
             nextBtn.disabled = !isMyTurn && !isHost;
+
+            const skipBtn = document.getElementById('btn-skip-question');
+            skipBtn.disabled = !isMyTurn && !isHost;
         }
 
         function updateCardDOM(info, question) {
@@ -1080,6 +1122,7 @@
         window.requestLevelChange = requestLevelChange;
         window.requestCardFlip = requestCardFlip;
         window.requestNextTurn = requestNextTurn;
+        window.requestSkipQuestion = requestSkipQuestion;
 
         // Initialize App
         window.onload = async function() {
