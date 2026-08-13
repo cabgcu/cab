@@ -809,25 +809,50 @@
         const GC_PREFIX = "GC::";
         const GAME_CHANGER_CHANCE = 0.25;
 
-        function getRandomGameChanger(usedList) {
-            let available = gameChangers.filter(g => !usedList.includes(g));
-            if (available.length === 0) available = gameChangers;
+        // Fisher-Yates shuffle. Used to deal out a fresh, randomized draw
+        // order for every level (and the Game Changer pile) each time a
+        // game starts, instead of the same source-array order every time.
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
 
-            const randomIndex = Math.floor(Math.random() * available.length);
-            return { text: available[randomIndex] };
+        // Shuffles a fresh deck for every level plus the Game Changer pile.
+        // Call once when a room is created.
+        function shuffleAllDecks() {
+            return {
+                1: shuffle(questions[1]),
+                2: shuffle(questions[2]),
+                3: shuffle(questions[3]),
+                4: shuffle(questions[4]),
+                gc: shuffle(gameChangers)
+            };
+        }
+
+        // Draws the top card from a shuffled deck (an array of remaining
+        // texts, as stored in room.used_questions). Reshuffles a fresh deck
+        // from `pool` once the current one runs out, so play never stalls
+        // and each pass through a level is its own random order.
+        function drawFromDeck(deck, pool) {
+            const source = (deck && deck.length > 0) ? deck : shuffle(pool);
+            const [text, ...rest] = source;
+            const remaining = rest.length > 0 ? rest : shuffle(pool);
+            return { text, remaining };
         }
 
         // Picks the next card for a turn: usually a question from the given
-        // level, occasionally a Game Changer challenge instead.
-        function drawNextCard(level, usedQuestions) {
+        // level's deck, occasionally a Game Changer challenge instead.
+        function drawNextCard(level, decks) {
             if (Math.random() < GAME_CHANGER_CHANCE) {
-                const usedGC = usedQuestions.gc || [];
-                const gc = getRandomGameChanger(usedGC);
-                return { isGameChanger: true, text: gc.text, usedKey: 'gc', usedList: usedGC, poolSize: gameChangers.length };
+                const { text, remaining } = drawFromDeck(decks.gc, gameChangers);
+                return { isGameChanger: true, text, usedKey: 'gc', remaining };
             }
-            const usedList = usedQuestions[level] || [];
-            const q = getRandomQuestion(level, usedList);
-            return { isGameChanger: false, text: q.text, usedKey: String(level), usedList, poolSize: questions[level].length };
+            const { text, remaining } = drawFromDeck(decks[level], questions[level]);
+            return { isGameChanger: false, text, usedKey: String(level), remaining };
         }
 
         const levelInfo = {
@@ -922,7 +947,13 @@
              if (!currentUser) return;
 
              const code = generateRoomCode();
-             const initialQuestion = getRandomQuestion(1, []);
+
+             // Fresh shuffled decks for this game, so the draw order differs
+             // every time a new game starts instead of following the same
+             // source-list order.
+             const decks = shuffleAllDecks();
+             const { text: firstQuestion, remaining } = drawFromDeck(decks[1], questions[1]);
+             decks[1] = remaining;
 
              const initialRow = {
                  code,
@@ -930,9 +961,9 @@
                  status: 'waiting', // waiting, playing
                  level: 1,
                  is_flipped: false,
-                 current_question: initialQuestion.text,
+                 current_question: firstQuestion,
                  card_key: Date.now(),
-                 used_questions: { 1: [], 2: [], 3: [], 4: [], gc: [] },
+                 used_questions: decks,
                  players: {
                      [currentUser.uid]: {
                          name: playerName,
@@ -1128,14 +1159,16 @@
             // Only host or current turn player can change level? Let's say anyone can.
 
             try {
-                // When level changes, generate a new question for that level immediately
-                const q = getRandomQuestion(newLevel, localGameState.usedQuestions[newLevel] || []);
+                // When level changes, draw the next card from that level's deck
+                const { text, remaining } = drawFromDeck(localGameState.usedQuestions[newLevel], questions[newLevel]);
+                const newUsedQuestions = { ...localGameState.usedQuestions, [newLevel]: remaining };
 
                 const { error } = await supabase.from('rooms').update({
                     level: newLevel,
                     is_flipped: true,
-                    current_question: q.text,
-                    card_key: Date.now() // trigger slide animation
+                    current_question: text,
+                    card_key: Date.now(), // trigger slide animation
+                    used_questions: newUsedQuestions
                 }).eq('code', currentRoomCode);
                 if (error) throw error;
             } catch(e) { console.error("Error changing level", e); }
@@ -1175,14 +1208,7 @@
                 const currentLevel = localGameState.level;
 
                 const draw = drawNextCard(currentLevel, localGameState.usedQuestions);
-
-                // Keep track of used questions/challenges (simple array of text strings to avoid index issues if we add/remove)
-                let newUsedList = [...draw.usedList, draw.text];
-                if (newUsedList.length >= draw.poolSize) {
-                    newUsedList = []; // Reset if all used
-                }
-
-                const newUsedQuestions = { ...localGameState.usedQuestions, [draw.usedKey]: newUsedList };
+                const newUsedQuestions = { ...localGameState.usedQuestions, [draw.usedKey]: draw.remaining };
                 const cardText = draw.isGameChanger ? GC_PREFIX + draw.text : draw.text;
 
                 const { error } = await supabase.from('rooms').update({
@@ -1207,36 +1233,19 @@
 
             try {
                 const currentLevel = localGameState.level;
-                const usedQuestionsList = localGameState.usedQuestions[currentLevel] || [];
 
-                const q = getRandomQuestion(currentLevel, usedQuestionsList);
-
-                // Same "mark as used" bookkeeping as requestNextTurn, but the turn stays put.
-                let newUsedList = [...usedQuestionsList, q.text];
-                if (newUsedList.length >= questions[currentLevel].length) {
-                    newUsedList = []; // Reset if all used
-                }
-
-                const newUsedQuestions = { ...localGameState.usedQuestions, [currentLevel]: newUsedList };
+                // Same deck the level is drawing from, but the turn stays put.
+                const { text, remaining } = drawFromDeck(localGameState.usedQuestions[currentLevel], questions[currentLevel]);
+                const newUsedQuestions = { ...localGameState.usedQuestions, [currentLevel]: remaining };
 
                 const { error } = await supabase.from('rooms').update({
                     is_flipped: true,
-                    current_question: q.text,
+                    current_question: text,
                     card_key: Date.now(), // Trigger slide animation on all clients
                     used_questions: newUsedQuestions
                 }).eq('code', currentRoomCode);
                 if (error) throw error;
             } catch(e) { console.error("Error skipping question", e); }
-        }
-
-        function getRandomQuestion(level, usedList) {
-            const pool = questions[level];
-            
-            let available = pool.filter(q => !usedList.includes(q));
-            if (available.length === 0) available = pool; // fallback
-            
-            const randomIndex = Math.floor(Math.random() * available.length);
-            return { text: available[randomIndex] };
         }
 
         function renderWaitingRoom() {
