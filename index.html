@@ -382,27 +382,53 @@
     <div class="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-white/5 blur-[120px] pointer-events-none -z-10"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-        // Environment provided variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cards-against-bad-multi';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        
-        let app, db, auth;
+        // Supabase project connection. The key below is the "publishable" (anon)
+        // key, which is safe to expose in client-side code — access is governed
+        // by the Row Level Security policies on the `rooms` table (see
+        // supabase/schema.sql). Never put the secret/service key in this file.
+        const SUPABASE_URL = "https://nmmshjdknmuzpgpquwec.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_PCxlxywY7W6K3TmMrSnSsw_NPXKugoZ";
+
         let currentUser = null;
         let currentRoomCode = null;
-        let unsubscribeRoom = null;
+        let roomChannel = null;
         let isHost = false;
 
-        // Ensure firebaseConfig is valid before initializing
-        if (Object.keys(firebaseConfig).length > 0) {
-             app = initializeApp(firebaseConfig);
-             db = getFirestore(app);
-             auth = getAuth(app);
-        } else {
-             showAlert("Configuration Error", "Firebase configuration is missing. Multiplayer will not work.");
+        let supabase;
+        try {
+            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {
+            console.error("Supabase configuration is missing or invalid. Multiplayer will not work.", e);
+        }
+
+        // Each browser gets a stable random ID persisted in localStorage,
+        // standing in for Firebase's anonymous-auth UID.
+        function getOrCreateLocalUid() {
+            let uid = localStorage.getItem('cab_uid');
+            if (!uid) {
+                uid = crypto.randomUUID();
+                localStorage.setItem('cab_uid', uid);
+            }
+            return uid;
+        }
+
+        // Converts a `rooms` table row (snake_case) into the camelCase shape
+        // the rest of the app expects.
+        function rowToState(row) {
+            return {
+                status: row.status,
+                level: row.level,
+                isFlipped: row.is_flipped,
+                currentQuestion: row.current_question,
+                cardKey: row.card_key,
+                usedQuestions: row.used_questions,
+                players: row.players,
+                turnOrder: row.turn_order,
+                currentTurnIndex: row.current_turn_index,
+                hostId: row.host_id
+            };
         }
 
         // --- GAME DATA ---
@@ -487,33 +513,9 @@
         const flipHint = document.getElementById('flip-hint');
         
         async function initAuth() {
-            if (!auth) return false;
-            
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                
-                return new Promise((resolve) => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            currentUser = user;
-                            resolve(true);
-                        }
-                    });
-                });
-            } catch (error) {
-                console.error("Auth error:", error);
-                showLobbyError("Failed to authenticate. Please try again.");
-                return false;
-            }
-        }
-
-        // Helper to get consistent room document reference based on RULE 1
-        function getRoomRef(code) {
-             return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+            if (!supabase) return false;
+            currentUser = { uid: getOrCreateLocalUid() };
+            return true;
         }
 
         function generateRoomCode() {
@@ -527,19 +529,19 @@
 
         async function createRoom(playerName) {
              if (!currentUser) return;
-             
+
              const code = generateRoomCode();
-             const roomRef = getRoomRef(code);
-             
-             const initialData = {
-                 createdAt: Date.now(),
-                 hostId: currentUser.uid,
+             const initialQuestion = getRandomQuestion(1, []);
+
+             const initialRow = {
+                 code,
+                 host_id: currentUser.uid,
                  status: 'waiting', // waiting, playing
                  level: 1,
-                 isFlipped: false,
-                 currentQuestion: getRandomQuestion(1, []),
-                 cardKey: Date.now(),
-                 usedQuestions: { 1: [], 2: [], 3: [], 4: [] },
+                 is_flipped: false,
+                 current_question: initialQuestion.text,
+                 card_key: Date.now(),
+                 used_questions: { 1: [], 2: [], 3: [], 4: [] },
                  players: {
                      [currentUser.uid]: {
                          name: playerName,
@@ -547,12 +549,13 @@
                          isActive: true
                      }
                  },
-                 turnOrder: [currentUser.uid],
-                 currentTurnIndex: 0
+                 turn_order: [currentUser.uid],
+                 current_turn_index: 0
              };
 
              try {
-                 await setDoc(roomRef, initialData);
+                 const { error } = await supabase.from('rooms').insert(initialRow);
+                 if (error) throw error;
                  currentRoomCode = code;
                  isHost = true;
                  joinLocalRoom(code);
@@ -564,49 +567,55 @@
 
         async function joinRoom(code, playerName) {
              if (!currentUser) return;
-             
+
              code = code.toUpperCase();
-             const roomRef = getRoomRef(code);
-             
+
              try {
-                 const docSnap = await getDoc(roomRef);
-                 
-                 if (!docSnap.exists()) {
+                 const { data, error } = await supabase.from('rooms').select('*').eq('code', code).maybeSingle();
+                 if (error) throw error;
+
+                 if (!data) {
                      showLobbyError("Room not found.");
                      return;
                  }
-                 
-                 const data = docSnap.data();
-                 
-                 if (Object.keys(data.players).length >= 6 && !data.players[currentUser.uid]) {
+
+                 const players = data.players || {};
+
+                 if (Object.keys(players).length >= 6 && !players[currentUser.uid]) {
                      showLobbyError("Room is full (max 6 players).");
                      return;
                  }
 
-                 if (data.status === 'playing' && !data.players[currentUser.uid]) {
+                 if (data.status === 'playing' && !players[currentUser.uid]) {
                      showLobbyError("Game has already started.");
                      return;
                  }
 
                  // Add player to room
-                 const turnOrder = [...data.turnOrder];
+                 const turnOrder = [...(data.turn_order || [])];
                  if (!turnOrder.includes(currentUser.uid)) {
                      turnOrder.push(currentUser.uid);
                  }
 
-                 await updateDoc(roomRef, {
-                     [`players.${currentUser.uid}`]: {
+                 const newPlayers = {
+                     ...players,
+                     [currentUser.uid]: {
                          name: playerName,
                          joinedAt: Date.now(),
                          isActive: true
-                     },
-                     turnOrder: turnOrder
-                 });
+                     }
+                 };
+
+                 const { error: updateError } = await supabase
+                     .from('rooms')
+                     .update({ players: newPlayers, turn_order: turnOrder })
+                     .eq('code', code);
+                 if (updateError) throw updateError;
 
                  currentRoomCode = code;
-                 isHost = (data.hostId === currentUser.uid);
+                 isHost = (data.host_id === currentUser.uid);
                  joinLocalRoom(code);
-                 
+
              } catch (error) {
                  console.error("Error joining room:", error);
                  showLobbyError("Error joining room.");
@@ -616,19 +625,27 @@
         function joinLocalRoom(code) {
              hideLobbyError();
              lobbyUI.classList.add('hidden');
-             
-             // Setup listener
-             const roomRef = getRoomRef(code);
-             unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
-                 if (docSnap.exists()) {
-                     handleRoomUpdate(docSnap.data());
-                 } else {
-                     // Room deleted or kicked
-                     handleDisconnect("The room was closed.");
-                 }
-             }, (error) => {
-                 console.error("Listener error:", error);
-                 handleDisconnect("Lost connection to room.");
+
+             // Setup realtime listener for this room's row
+             roomChannel = supabase
+                 .channel(`room-${code}`)
+                 .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` }, (payload) => {
+                     if (payload.eventType === 'DELETE') {
+                         handleDisconnect("The room was closed.");
+                     } else {
+                         handleRoomUpdate(rowToState(payload.new));
+                     }
+                 })
+                 .subscribe((status) => {
+                     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                         console.error("Listener error:", status);
+                         handleDisconnect("Lost connection to room.");
+                     }
+                 });
+
+             // Fetch current state immediately in case we missed an update
+             supabase.from('rooms').select('*').eq('code', code).maybeSingle().then(({ data }) => {
+                 if (data) handleRoomUpdate(rowToState(data));
              });
         }
 
@@ -652,10 +669,10 @@
 
         async function startGame() {
              if (!isHost || !currentRoomCode || !currentUser) return;
-             
-             const roomRef = getRoomRef(currentRoomCode);
+
              try {
-                 await updateDoc(roomRef, { status: 'playing' });
+                 const { error } = await supabase.from('rooms').update({ status: 'playing' }).eq('code', currentRoomCode);
+                 if (error) throw error;
              } catch(e) {
                  console.error("Error starting game", e);
              }
@@ -664,74 +681,75 @@
         // Game actions triggered by UI
         async function requestLevelChange(newLevel) {
             if (!currentRoomCode || !currentUser || newLevel === localGameState.level) return;
-            
+
             // Only host or current turn player can change level? Let's say anyone can.
-            
-            const roomRef = getRoomRef(currentRoomCode);
+
             try {
                 // When level changes, generate a new question for that level immediately
                 const q = getRandomQuestion(newLevel, localGameState.usedQuestions[newLevel] || []);
-                
-                await updateDoc(roomRef, {
+
+                const { error } = await supabase.from('rooms').update({
                     level: newLevel,
-                    isFlipped: true,
-                    currentQuestion: q.text,
-                    cardKey: Date.now() // trigger slide animation
-                });
+                    is_flipped: true,
+                    current_question: q.text,
+                    card_key: Date.now() // trigger slide animation
+                }).eq('code', currentRoomCode);
+                if (error) throw error;
             } catch(e) { console.error("Error changing level", e); }
         }
 
         async function requestCardFlip() {
             if (!currentRoomCode || !currentUser) return;
-            
+
             const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
-            
+
             // Only the person whose turn it is (or host as fallback) can flip the card
             if (!isMyTurn && !isHost) {
                 showAlert("Not Your Turn", "Only the active player can flip the card.");
                 return;
             }
 
-            const roomRef = getRoomRef(currentRoomCode);
             try {
                 // Toggle the flip state back and forth
-                await updateDoc(roomRef, {
-                    isFlipped: !localGameState.isFlipped
-                });
+                const { error } = await supabase.from('rooms').update({
+                    is_flipped: !localGameState.isFlipped
+                }).eq('code', currentRoomCode);
+                if (error) throw error;
             } catch(e) { console.error("Error flipping card", e); }
         }
 
         async function requestNextTurn() {
             if (!currentRoomCode || !currentUser) return;
-            
+
             const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
             if (!isMyTurn && !isHost) {
                  showAlert("Not Your Turn", "Wait for your turn to draw a new card.");
                  return;
             }
 
-            const roomRef = getRoomRef(currentRoomCode);
-            
             try {
                 const nextTurnIndex = (localGameState.currentTurnIndex + 1) % localGameState.turnOrder.length;
                 const currentLevel = localGameState.level;
                 const usedQuestionsList = localGameState.usedQuestions[currentLevel] || [];
-                
+
                 const q = getRandomQuestion(currentLevel, usedQuestionsList);
-                
+
                 // Keep track of used questions (simple array of text strings to avoid index issues if we add/remove)
                 let newUsedList = [...usedQuestionsList, q.text];
                 if (newUsedList.length >= questions[currentLevel].length) {
                     newUsedList = []; // Reset if all used
                 }
 
-                await updateDoc(roomRef, {
-                    currentTurnIndex: nextTurnIndex,
-                    isFlipped: true,
-                    currentQuestion: q.text,
-                    cardKey: Date.now(), // Trigger slide animation on all clients
-                    [`usedQuestions.${currentLevel}`]: newUsedList
-                });
+                const newUsedQuestions = { ...localGameState.usedQuestions, [currentLevel]: newUsedList };
+
+                const { error } = await supabase.from('rooms').update({
+                    current_turn_index: nextTurnIndex,
+                    is_flipped: true,
+                    current_question: q.text,
+                    card_key: Date.now(), // Trigger slide animation on all clients
+                    used_questions: newUsedQuestions
+                }).eq('code', currentRoomCode);
+                if (error) throw error;
             } catch(e) { console.error("Error moving to next turn", e); }
         }
 
@@ -908,21 +926,23 @@
 
         window.leaveGame = async function() {
             if (currentRoomCode && currentUser) {
-                 const roomRef = getRoomRef(currentRoomCode);
                  try {
                      // Mark user inactive
-                     await updateDoc(roomRef, {
-                         [`players.${currentUser.uid}.isActive`]: false
-                     });
+                     const newPlayers = { ...localGameState.players };
+                     if (newPlayers[currentUser.uid]) {
+                         newPlayers[currentUser.uid] = { ...newPlayers[currentUser.uid], isActive: false };
+                     }
+                     const { error } = await supabase.from('rooms').update({ players: newPlayers }).eq('code', currentRoomCode);
+                     if (error) throw error;
                  } catch(e) { console.error("Error leaving", e); }
             }
             handleDisconnect("You left the game.");
         }
 
         function handleDisconnect(message) {
-             if (unsubscribeRoom) {
-                 unsubscribeRoom();
-                 unsubscribeRoom = null;
+             if (roomChannel) {
+                 supabase.removeChannel(roomChannel);
+                 roomChannel = null;
              }
              currentRoomCode = null;
              isHost = false;
