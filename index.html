@@ -315,9 +315,9 @@
 
         <!-- Intro Cards: shown once per room, right before gameplay begins -->
         <div id="intro-ui" class="hidden w-full max-w-md flex-col items-center gap-6">
-            <div class="w-full bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] min-h-[340px] flex flex-col">
-                <h2 id="intro-card-title" class="text-2xl font-bold text-white mb-4 text-center"></h2>
-                <div id="intro-card-body" class="flex-grow flex items-center"></div>
+            <div class="w-full bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] h-[380px] flex flex-col">
+                <h2 id="intro-card-title" class="text-2xl font-bold text-white mb-4 text-center shrink-0"></h2>
+                <div id="intro-card-body" class="flex-grow min-h-0 overflow-y-auto flex flex-col items-center justify-center"></div>
             </div>
 
             <div id="intro-dots" class="flex items-center justify-center gap-2"></div>
@@ -891,7 +891,7 @@
             {
                 title: "Creator Story",
                 bodyHtml: `
-                    <img src="https://i.imgur.com/rnjvV6J.jpeg" alt="Creator story" class="w-full h-auto rounded-xl border border-white/10">
+                    <img src="https://i.imgur.com/rnjvV6J.jpeg" alt="Creator story" class="max-w-full max-h-full w-auto h-auto object-contain rounded-xl border border-white/10 mx-auto">
                 `
             }
         ];
