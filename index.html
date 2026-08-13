@@ -136,11 +136,13 @@
         .theme-l2 { --theme-color: #ffffff; }
         .theme-l3 { --theme-color: #ffffff; }
         .theme-l4 { --theme-color: #ffffff; }
+        .theme-gc { --theme-color: #facc15; }
 
         .card-back[data-level="1"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
         .card-back[data-level="2"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
         .card-back[data-level="3"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
         .card-back[data-level="4"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+        .card-back[data-level="gc"] { border: 1px solid rgba(250,204,21,0.4); box-shadow: 0 0 30px rgba(250,204,21,0.15); background-color: rgba(45,35,5,0.6); }
 
         .level-badge {
             position: absolute;
@@ -157,6 +159,12 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
             color: white;
+        }
+
+        .card-back[data-level="gc"] .level-badge {
+            background-color: rgba(250, 204, 21, 0.15);
+            border-color: rgba(250, 204, 21, 0.4);
+            color: #facc15;
         }
 
         /* Deck Animation for Next Card - APPLIED TO CONTAINER NOW */
@@ -265,13 +273,6 @@
             </div>
 
             <div id="lobby-error" class="text-red-400 text-sm hidden bg-red-900/30 p-3 rounded-lg w-full text-center border border-red-800/50"></div>
-
-            <div id="game-history-section" class="hidden w-full pt-4 border-t border-white/10">
-                <h3 class="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Your Recent Games</h3>
-                <ul id="game-history-list" class="space-y-2 max-h-48 overflow-y-auto">
-                    <!-- Populated by JS -->
-                </ul>
-            </div>
         </div>
 
         <!-- Waiting Room UI -->
@@ -504,47 +505,297 @@
 
         // --- GAME DATA ---
         const questions = {
-            1: [ 
-                "What is your go-to karaoke song?",
-                "If you had to eat one meal for the rest of your life, what would it be?",
-                "What's the weirdest habit you have?",
-                "What was your first email address or screen name?",
-                "If you were a wrestler, what would be your entrance theme song?",
-                "What is a silly fear you have?",
-                "Who was your first celebrity crush?",
-                "What's the most embarrassing trend you participated in?"
+            1: [
+                "What's a hill you'll happily die on?",
+                "What's the most useless fact you know?",
+                "If your life had a mascot, what would it be?",
+                "What's your comfort TV show?",
+                "What's one food everyone loves that you don't?",
+                "If someone narrated your day, who would voice it?",
+                "What's your most irrational fear?",
+                "What's your favorite smell?",
+                "What's something you've never understood the hype around?",
+                "What app do you waste the most time on?",
+                "Which fictional world would you vacation in?",
+                "What's something you own that you should probably throw away?",
+                "What always makes you laugh?",
+                "If your pet could text you, what would it say?",
+                "What's your favorite season?",
+                "If coffee were free forever, where would you get it?",
+                "What's your favorite board game?",
+                "What's the weirdest thing you've Googled?",
+                "Morning shower or night shower?",
+                "What's your most-used emoji?",
+                "If you had one extra hour every day, how would you spend it?",
+                "What's something you're secretly good at?",
+                "What smell reminds you of home?",
+                "What's your favorite road trip snack?",
+                "What's your guilty pleasure TV show?",
+                "What's the oldest thing you own?",
+                "If you could instantly master one hobby, what would it be?",
+                "What's your favorite holiday tradition?",
+                "What's one word you always mispronounce?",
+                "What's your favorite random purchase under $20?",
+                "What's your dream breakfast?",
+                "If your life had a theme song, what genre would it be?",
+                "What's one thing you refuse to spend money on?",
+                "If you had a signature flavor, what would it be?",
+                "What toy did you love growing up?",
+                "What always makes a bad day better?",
+                "What's your favorite fast-food item?",
+                "If you had to eat one cuisine forever, which would it be?",
+                "What's something you've never tried but want to?",
+                "What's your favorite thing about your hometown?",
+                "If your phone background had to be one photo forever, what would it be?",
+                "What's one fashion trend you'd never bring back?",
+                "What animal do you think matches your personality?",
+                "What's one word your friends use to describe you?",
+                "What's your favorite smell from childhood?",
+                "If your car could talk, what would it complain about?",
+                "What's your favorite weather?",
+                "What's one talent you wish you had?",
+                "What's your go-to karaoke song?",
+                "If someone wanted to convince you to hang out, what activity would almost always work?",
+                "What would your patronus look like?",
+                "You walk into your kitchen at 2 a.m. and there's a raccoon making a sandwich. What's your first move?",
+                "If your refrigerator had one review of you on Yelp, what would it say?",
+                "You're forced to replace your handshake with another greeting forever. What is it?",
+                "You can make one incredibly mundane object famous. What are you choosing?",
+                "An alien asks you to explain ranch dressing. How do you do it?",
+                "If your laugh became a ringtone, would people answer or decline?",
+                "Every time you enter a room, one song plays. What's the song?",
+                "You accidentally become the world's leading expert on something ridiculously specific. What is it?",
+                "Which animal do you think secretly dislikes humans the most?"
             ],
-            2: [ 
-                "What was your first impression of me?",
-                "What do you think people misunderstand about you upon first meeting?",
-                "If someone were to describe you based only on your social media, what would they say?",
-                "What vibe do you think you give off to strangers?",
-                "Who in this group seems most likely to survive a zombie apocalypse?",
-                "Based on my style, what kind of music do you think I listen to?",
-                "What is a compliment you receive often?",
-                "What assumption do you think people make about you?"
+            2: [
+                "What's one thing you think I'm surprisingly good at?",
+                "What do you think stresses me out most?",
+                "Where do you think my dream vacation is?",
+                "What career would you guess I almost chose?",
+                "What's my biggest strength?",
+                "What do I probably overthink?",
+                "If I hosted a party, what would it be like?",
+                "What song reminds you of me?",
+                "What motivates me?",
+                "Am I spontaneous or planned?",
+                "What's my hidden talent?",
+                "What's my love language?",
+                "What animal reminds you of me?",
+                "What would I spend $1,000 on?",
+                "What's one word you would use to describe me?",
+                "What's my biggest pet peeve?",
+                "What TV character am I like?",
+                "If I wrote a book, what would it be about?",
+                "What did I want to be as a kid?",
+                "What emotion do I hide best?",
+                "What dessert fits my personality?",
+                "What season fits me best?",
+                "If I had a superpower, what would it be?",
+                "What would my dream house look like?",
+                "What board game would I dominate?",
+                "What's my biggest fear?",
+                "What kind of student am I/ was I when I was younger?",
+                "What's one thing I value most?",
+                "Am I an introvert or extrovert?",
+                "What's my ideal Saturday?",
+                "What's one thing I'd never do?",
+                "What app do you think I open first?",
+                "What's my biggest goal?",
+                "What's my coffee order?",
+                "If I were famous, what would it be for?",
+                "What's one thing I'd splurge on?",
+                "What Disney character am I?",
+                "What activity would you recommend that you think I'd enjoy?",
+                "What reality tv/game show would I win?",
+                "What's my dream job?",
+                "What's something I'm naturally talented at?",
+                "If I had a catchphrase, what would it be?",
+                "What color represents me?",
+                "What's my favorite holiday?",
+                "What sport would I unexpectedly excel at?",
+                "If I were an animal, what would I be?",
+                "What's a conspiracy theory you think I believe in?",
+                "What would I do if I won the lottery?",
+                "What kind of parent do you think I'd be?",
+                "What was my favorite book/ book series as a kid?",
+                "If a bogart appeared before me (look up bogart harry potter on google), what do you think it would look like for me?",
+                "If I were banned from one store forever, what store do you think it would be?",
+                "Which Mario Kart character do you think I'd main?",
+                "If I got arrested, what do you think the charge would be? (Wrong answers only.)",
+                "Which historical figure do you think I'd accidentally offend?",
+                "If I had an unnecessarily expensive hobby, what would it be?",
+                "What flavor of potato chip best represents my personality?",
+                "If I owned a food truck, what would I sell?",
+                "What conspiracy theory do you think I'd accidentally believe for six months?",
+                "What sport do you think I played growing up?"
             ],
-            3: [ 
-                "What is a deeply held belief you've changed your mind about recently?",
-                "What is a dream you've let go of, and why?",
-                "When was the last time you felt truly understood by someone?",
-                "What is the hardest lesson you've had to learn in life?",
-                "What are you currently unlearning?",
-                "What is a compliment you received that you'll never forget?",
-                "What brings you the most genuine joy?",
-                "What are you most afraid of finding out about yourself?"
+            3: [
+                "What's a conversation you'll never forget?",
+                "When have you felt the most courageous?",
+                "What's something you wish more people knew about you?",
+                "What's a lesson you learned the hard way?",
+                "Who shaped your life the most?",
+                "What season of life changed you?",
+                "What are you still becoming?",
+                "When do you feel most alive?",
+                "What's something you've changed your mind about?",
+                "What moment would you relive?",
+                "What do you wish you started sooner?",
+                "What tradition means the most to you?",
+                "When have you felt most understood?",
+                "What's something you hope never changes?",
+                "What's one question you wish people asked you?",
+                "What would your younger self be proud of?",
+                "What memory always makes you smile?",
+                "What's a fear you've overcome?",
+                "What dream have you let go of?",
+                "What are you excited about right now?",
+                "What's the best advice you've received?",
+                "What failure taught you the most?",
+                "What's one thing you're still figuring out?",
+                "What's something you believed as a kid?",
+                "What's a risk you're glad you took?",
+                "What's something you hope people remember about you?",
+                "What relationship has changed you?",
+                "What's a challenge that made you stronger?",
+                "What's something you've forgiven?",
+                "What's your favorite family memory?",
+                "What's a place that feels like home?",
+                "What accomplishment are you proud of?",
+                "What's something you've never told many people?",
+                "What's one habit that changed your life?",
+                "What does success mean to you?",
+                "When do you feel closest to God?",
+                "What's something you want to be remembered for?",
+                "What's your happiest memory from school?",
+                "Who makes you laugh the hardest?",
+                "What's one thing you hope to experience someday?",
+                "What has surprised you most about adulthood?",
+                "What's something you're currently learning?",
+                "What's a fear you're still working through?",
+                "When do you feel most confident?",
+                "What's one thing you're grateful happened?",
+                "What's one thing you're grateful didn't happen?",
+                "What's a compliment you'll never forget?",
+                "What friendship has impacted you most?",
+                "What challenge are you currently facing?",
+                "What's one thing giving you hope today?",
+                "What's your favorite way to make a good day even better?",
+                "If you had a completely free day, how would you spend it?",
+                "The Room of Requirement appears exactly when you need it most. What's inside your room today?",
+                "What's the weirdest coincidence that's ever happened to you?",
+                "When was the last time you laughed so hard you couldn't breathe?",
+                "What's something that seemed like a huge deal at the time but is hilarious now?",
+                "Tell us about a time you were 100% confident...and completely wrong.",
+                "What's the most \"this could only happen to me\" story you have?",
+                "What's the kindest strange thing a stranger has ever done for you?",
+                "What's the funniest misunderstanding you've ever been part of?"
             ],
-            4: [ 
-                "What is something you admire about the person to your left?",
-                "How has this conversation shifted your perspective?",
-                "What is a question you wish someone would ask you right now?",
-                "What is something you're taking away from this experience?",
-                "In one word, how do you feel right now?",
-                "What is something you realize you need to give yourself more grace for?",
-                "What part of yourself do you want to nurture more?",
-                "How can you be a better friend to yourself?"
+            4: [
+                "What's one thing I said today that stuck with you?",
+                "What surprised you most about me?",
+                "What do you appreciate about how I communicate?",
+                "What's one quality I should never lose?",
+                "What conversation should we have again someday?",
+                "What do you hope happens in my life this year?",
+                "What's one encouragement you want to leave me with?",
+                "What did I make you think about today?",
+                "What will you remember from today?",
+                "Where do you think I'll thrive?",
+                "What gift do you think I bring people?",
+                "What's something I should keep believing?",
+                "What made you feel seen today?",
+                "What are we both still learning?",
+                "What's one thing you'd thank me for?",
+                "What's one strength you've noticed in me?",
+                "What do you admire about me?",
+                "What do you hope I never stop doing?",
+                "What's one challenge you think I'll overcome?",
+                "What's one thing you've learned from me?",
+                "What's something I don't give myself enough credit for?",
+                "What's one word of advice you'd give me?",
+                "What's one thing I do that encourages others?",
+                "What quality do you think will serve me well?",
+                "What's one hope you have for our friendship?",
+                "What's something you think I underestimate about myself?",
+                "What do you think makes me unique?",
+                "What's one thing you've enjoyed learning about me?",
+                "What's one memory from today you'll keep?",
+                "What's something you've noticed I care deeply about?",
+                "What's one challenge you think has shaped me?",
+                "What do you think brings me joy?",
+                "What's one thing I should keep chasing?",
+                "What's one thing you hope never changes about me?",
+                "What's one compliment you don't think I hear enough?",
+                "What positive impact do you think I have on others?",
+                "What's one thing you're leaving today grateful for?",
+                "What's one thing I inspired you to think about?",
+                "What's one conversation you'd love for us to have in the future?",
+                "What's something I do that makes people feel welcome?",
+                "What's one gift you'd encourage me to use more?",
+                "What kind of legacy do you think I'll leave?",
+                "What's something you respect about me?",
+                "What's one thing you've learned about yourself today?",
+                "What's one thing you've appreciated about this conversation?",
+                "What do you hope I accomplish in the next five years?",
+                "What's one word you hope describes our friendship?",
+                "If you could give me one reminder for tomorrow, what would it be?",
+                "What's one final encouragement you'd like to leave me with?",
+                "If my life became a documentary, what would this chapter be called?",
+                "What's one fictional side quest you think I'd absolutely accept?",
+                "If we were coworkers in an office sitcom, what role would I play?",
+                "What's one oddly specific thing you'll probably remember about me?",
+                "What snack best represents me, and why?",
+                "If someone had to cast an actor to play me in a comedy, who would you pick?",
+                "If I became famous tomorrow, what do you think it would be for?",
+                "If someone met me ten years from now, what do you hope they'd notice first?",
+                "What's one completely unnecessary superpower you think fits me perfectly?"
             ]
         };
+
+        // "Game Changer" challenges, sprinkled in throughout the game instead
+        // of a normal question (see drawNextCard / GC_PREFIX below).
+        const gameChangers = [
+            "Each person pick out an image online that the other would enjoy as their phone wallpaper (30 seconds)",
+            "Give your partner a movie title for their life.",
+            "Each person tells the other one compliment—but it can't be about appearance.",
+            "Both players answer the next question as if they're 80 years old.",
+            "Tell a two-sentence story together, alternating one word at a time.",
+            "Describe your partner using only three emojis.",
+            "Both players have to answer the next question in under five seconds.",
+            "Make a handshake in 20 seconds.",
+            "Both players guess each other's favorite dessert.",
+            "Speak only in questions until the next card is finished.",
+            "Give your partner a nickname based on today's conversation.",
+            "Each player shares one song they think the other should hear this week.",
+            "Grab a sticky note/ small piece of paper and draw a portrait of your partner (30 seconds)"
+        ];
+
+        // Marks a current_question string as a Game Changer challenge rather
+        // than a level question, without needing a new database column.
+        const GC_PREFIX = "GC::";
+        const GAME_CHANGER_CHANCE = 0.25;
+
+        function getRandomGameChanger(usedList) {
+            let available = gameChangers.filter(g => !usedList.includes(g));
+            if (available.length === 0) available = gameChangers;
+
+            const randomIndex = Math.floor(Math.random() * available.length);
+            return { text: available[randomIndex] };
+        }
+
+        // Picks the next card for a turn: usually a question from the given
+        // level, occasionally a Game Changer challenge instead.
+        function drawNextCard(level, usedQuestions) {
+            if (Math.random() < GAME_CHANGER_CHANCE) {
+                const usedGC = usedQuestions.gc || [];
+                const gc = getRandomGameChanger(usedGC);
+                return { isGameChanger: true, text: gc.text, usedKey: 'gc', usedList: usedGC, poolSize: gameChangers.length };
+            }
+            const usedList = usedQuestions[level] || [];
+            const q = getRandomQuestion(level, usedList);
+            return { isGameChanger: false, text: q.text, usedKey: String(level), usedList, poolSize: questions[level].length };
+        }
 
         const levelInfo = {
             1: { title: "Embrace the Awkward", desc: "Breaking the ice and making others feel comfortable. Creating a safe space for intentional conversation.", themeClass: "theme-l1" },
@@ -612,7 +863,7 @@
                  is_flipped: false,
                  current_question: initialQuestion.text,
                  card_key: Date.now(),
-                 used_questions: { 1: [], 2: [], 3: [], 4: [] },
+                 used_questions: { 1: [], 2: [], 3: [], 4: [], gc: [] },
                  players: {
                      [currentUser.uid]: {
                          name: playerName,
@@ -798,22 +1049,22 @@
             try {
                 const nextTurnIndex = (localGameState.currentTurnIndex + 1) % localGameState.turnOrder.length;
                 const currentLevel = localGameState.level;
-                const usedQuestionsList = localGameState.usedQuestions[currentLevel] || [];
 
-                const q = getRandomQuestion(currentLevel, usedQuestionsList);
+                const draw = drawNextCard(currentLevel, localGameState.usedQuestions);
 
-                // Keep track of used questions (simple array of text strings to avoid index issues if we add/remove)
-                let newUsedList = [...usedQuestionsList, q.text];
-                if (newUsedList.length >= questions[currentLevel].length) {
+                // Keep track of used questions/challenges (simple array of text strings to avoid index issues if we add/remove)
+                let newUsedList = [...draw.usedList, draw.text];
+                if (newUsedList.length >= draw.poolSize) {
                     newUsedList = []; // Reset if all used
                 }
 
-                const newUsedQuestions = { ...localGameState.usedQuestions, [currentLevel]: newUsedList };
+                const newUsedQuestions = { ...localGameState.usedQuestions, [draw.usedKey]: newUsedList };
+                const cardText = draw.isGameChanger ? GC_PREFIX + draw.text : draw.text;
 
                 const { error } = await supabase.from('rooms').update({
                     current_turn_index: nextTurnIndex,
                     is_flipped: true,
-                    current_question: q.text,
+                    current_question: cardText,
                     card_key: Date.now(), // Trigger slide animation on all clients
                     used_questions: newUsedQuestions
                 }).eq('code', currentRoomCode);
@@ -995,18 +1246,23 @@
         }
 
         function updateCardDOM(info, question) {
-             cardElement.className = `game-card ${info.themeClass} ${localGameState.isFlipped ? 'is-flipped' : ''}`;
-             
-             frontContent.setAttribute('data-level', localGameState.level);
-             backContent.setAttribute('data-level', localGameState.level);
+             const isGameChanger = typeof question === 'string' && question.startsWith(GC_PREFIX);
+             const displayText = isGameChanger ? question.slice(GC_PREFIX.length) : question;
+             const dataLevel = isGameChanger ? 'gc' : localGameState.level;
+             const themeClass = isGameChanger ? 'theme-gc' : info.themeClass;
 
-             backContent.querySelector('.level-badge').innerText = `Level ${localGameState.level}`;
-             
+             cardElement.className = `game-card ${themeClass} ${localGameState.isFlipped ? 'is-flipped' : ''}`;
+
+             frontContent.setAttribute('data-level', dataLevel);
+             backContent.setAttribute('data-level', dataLevel);
+
+             backContent.querySelector('.level-badge').innerText = isGameChanger ? 'Game Changer' : `Level ${localGameState.level}`;
+
              // Update the level title on the question side
              const backLevelTitle = backContent.querySelector('.back-level-title');
-             if(backLevelTitle) backLevelTitle.innerText = info.title;
+             if(backLevelTitle) backLevelTitle.innerText = isGameChanger ? 'Shake things up' : info.title;
 
-             questionText.innerText = question;
+             questionText.innerText = displayText;
         }
 
         function animateCardTransition(info, question) {
@@ -1059,72 +1315,6 @@
              
              lobbyUI.classList.remove('hidden');
              if(message) showAlert("Disconnected", message);
-             loadGameHistory();
-        }
-
-        // Fetches rooms this browser's player has ever been part of, so they
-        // can see who they played with and rejoin a game in progress.
-        async function loadGameHistory() {
-            if (!supabase || !currentUser) return;
-
-            try {
-                const { data, error } = await supabase
-                    .from('rooms')
-                    .select('*')
-                    .contains('players', { [currentUser.uid]: {} })
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-                if (error) throw error;
-                renderGameHistory(data || []);
-            } catch (e) {
-                console.error("Error loading game history", e);
-            }
-        }
-
-        function renderGameHistory(rooms) {
-            const section = document.getElementById('game-history-section');
-            const list = document.getElementById('game-history-list');
-            list.innerHTML = '';
-
-            if (!rooms.length) {
-                section.classList.add('hidden');
-                return;
-            }
-            section.classList.remove('hidden');
-
-            rooms.forEach(row => {
-                const players = row.players || {};
-                const names = Object.entries(players)
-                    .map(([uid, p]) => uid === currentUser.uid ? `${p.name} (You)` : p.name)
-                    .join(', ');
-
-                const statusLabel = row.status === 'playing' ? 'In Progress' : 'Waiting';
-                const statusClass = row.status === 'playing'
-                    ? 'text-emerald-400 bg-emerald-900/30'
-                    : 'text-slate-400 bg-white/10';
-
-                const li = document.createElement('li');
-                li.className = 'bg-white/5 px-3 py-2.5 rounded-lg border border-white/10 flex items-center justify-between gap-3';
-                li.innerHTML = `
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono font-bold text-white text-sm">${escapeHtml(row.code)}</span>
-                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}">${statusLabel}</span>
-                        </div>
-                        <p class="text-xs text-slate-400 truncate mt-0.5">${escapeHtml(names)}</p>
-                    </div>
-                    <button data-code="${escapeHtml(row.code)}" class="btn-rejoin shrink-0 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors">Rejoin</button>
-                `;
-                list.appendChild(li);
-            });
-
-            list.querySelectorAll('.btn-rejoin').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const name = getRequiredPlayerName();
-                    if (!name) return;
-                    joinRoom(btn.getAttribute('data-code'), name);
-                });
-            });
         }
 
         function showLobbyError(msg) {
@@ -1225,8 +1415,6 @@
                 playerNameInput.addEventListener('change', (e) => {
                     localStorage.setItem('cab_player_name', e.target.value);
                 });
-
-                loadGameHistory();
             }
         };
 
