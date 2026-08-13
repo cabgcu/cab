@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cards Against Bad (Conversation)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --level-1: #3b82f6;
+            --level-2: #10b981;
+            --level-3: #f59e0b;
+            --level-4: #8b5cf6;
+            --bg-color: #000000;
+            --text-color: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1, h2, .card-title {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Card Container and Perspective */
+        .card-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 320px;
+            height: 450px;
+            margin: 2rem auto;
+            position: relative;
+        }
+
+        /* The Card Object */
+        .game-card {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border-radius: 1.5rem;
+        }
+
+        /* Flipping the Card */
+        .game-card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        /* Card Faces */
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+        }
+
+        .card-front {
+            background: #000000;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            background-color: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 1.5rem;
+        }
+
+        /* Level Specific Colors */
+        .theme-l1 { --theme-color: #ffffff; }
+        .theme-l2 { --theme-color: #ffffff; }
+        .theme-l3 { --theme-color: #ffffff; }
+        .theme-l4 { --theme-color: #ffffff; }
+
+        .card-back[data-level="1"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+        .card-back[data-level="2"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+        .card-back[data-level="3"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+        .card-back[data-level="4"] { border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+
+        .level-badge {
+            position: absolute;
+            top: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.35rem 1rem;
+            border-radius: 9999px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+
+        /* Deck Animation for Next Card - APPLIED TO CONTAINER NOW */
+        @keyframes slideOut {
+            0% { transform: translateX(0) rotateZ(0deg); opacity: 1; }
+            100% { transform: translateX(-100vw) rotateZ(-20deg); opacity: 0; }
+        }
+
+        @keyframes slideIn {
+            0% { transform: translateX(100vw) rotateZ(20deg); opacity: 0; }
+            100% { transform: translateX(0) rotateZ(0deg); opacity: 1; }
+        }
+
+        .sliding-out { animation: slideOut 0.5s forwards ease-in; }
+        .sliding-in { animation: slideIn 0.5s forwards ease-out; }
+
+        /* Fancy Button */
+        .btn-primary {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .game-header {
+             background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        /* Multiplayer Styles */
+        .player-badge {
+            transition: all 0.3s ease;
+        }
+        .player-active {
+            box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+            border: 2px solid white;
+        }
+        .modal {
+            backdrop-filter: blur(8px);
+        }
+        #lobby-ui, #game-ui {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header -->
+    <header class="game-header w-full p-4 md:p-6 text-center z-10 sticky top-0 flex flex-col md:flex-row justify-between items-center">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white mb-1 shadow-sm">
+                Cards Against Bad <span class="text-gray-400 italic font-light text-lg md:text-xl inline-block ml-2">(Conversation)</span>
+            </h1>
+        </div>
+        <div id="room-info" class="hidden text-sm text-slate-300 bg-white/10 px-4 py-2 rounded-full border border-white/20 mt-2 md:mt-0">
+            Room: <span id="room-code-display" class="font-mono font-bold text-white"></span>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex flex-col items-center justify-start p-4 w-full max-w-4xl mx-auto relative z-0 mt-4 md:mt-10">
+        
+        <!-- Lobby UI -->
+        <div id="lobby-ui" class="w-full max-w-md bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex flex-col items-center gap-6">
+            <h2 class="text-2xl font-bold text-white">Join the Game</h2>
+            
+            <div class="w-full space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1">Your Name</label>
+                    <input type="text" id="player-name-input" placeholder="Enter your name" class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-colors" maxlength="15">
+                </div>
+                
+                <div class="flex gap-4 pt-4 border-t border-white/10">
+                    <button id="btn-create-room" class="flex-1 bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold py-3 px-4 rounded-xl transition-colors backdrop-blur-sm">
+                        Create New Room
+                    </button>
+                </div>
+                
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-white/10"></div>
+                    <span class="flex-shrink-0 mx-4 text-slate-400 text-sm">or</span>
+                    <div class="flex-grow border-t border-white/10"></div>
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="room-code-input" placeholder="Room Code (e.g. A1B2)" class="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white uppercase font-mono focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30" maxlength="4">
+                    <button id="btn-join-room" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold py-3 px-6 rounded-xl transition-colors backdrop-blur-sm">
+                        Join
+                    </button>
+                </div>
+            </div>
+
+            <div id="lobby-error" class="text-red-400 text-sm hidden bg-red-900/30 p-3 rounded-lg w-full text-center border border-red-800/50"></div>
+        </div>
+
+        <!-- Waiting Room UI -->
+        <div id="waiting-room-ui" class="hidden w-full max-w-md bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex-col items-center gap-6">
+            <h2 class="text-2xl font-bold text-white text-center">Waiting Room</h2>
+            <div class="text-center mb-2">
+                <p class="text-slate-400 text-sm mb-1">Share this code with friends:</p>
+                <div class="flex items-center justify-center gap-2">
+                    <span id="waiting-room-code" class="text-4xl font-mono font-bold text-white tracking-widest bg-black/50 px-4 py-2 rounded-lg border border-white/10"></span>
+                    <button onclick="copyRoomCode()" class="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10" title="Copy Code">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="w-full">
+                <h3 class="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Players (<span id="player-count">1</span>/6)</h3>
+                <ul id="waiting-player-list" class="space-y-2 mb-6">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
+
+            <button id="btn-start-game" class="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-4 px-4 rounded-xl transition-all transform hover:scale-[1.02] shadow-lg hidden backdrop-blur-sm">
+                Start Game
+            </button>
+            <p id="waiting-host-msg" class="text-sm text-slate-400 text-center italic">Waiting for host to start...</p>
+        </div>
+
+        <!-- Main Game Area (Hidden initially) -->
+        <div id="game-ui" class="hidden w-full flex-col items-center">
+            
+            <!-- Turn Indicator & Player List -->
+            <div class="w-full mb-4 z-10 flex flex-col items-center">
+                <div id="turn-announcement" class="text-center mb-3 transition-all duration-300">
+                    <span class="inline-block bg-white/5 px-6 py-2 rounded-full border border-white/10 text-slate-300 text-sm font-medium">
+                        Waiting for game state...
+                    </span>
+                </div>
+                <div id="game-player-list" class="flex flex-row overflow-x-auto w-full max-w-md justify-center gap-2 pb-2 px-2 scrollbar-hide">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Level Selector -->
+            <div class="flex flex-wrap justify-center gap-2 mb-6 z-10 w-full max-w-sm px-2">
+                <button onclick="requestLevelChange(1)" id="btn-lvl-1" class="flex-1 min-w-[45%] py-2.5 rounded-xl text-xs font-semibold transition-all border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Lvl 1: Awkward</button>
+                <button onclick="requestLevelChange(2)" id="btn-lvl-2" class="flex-1 min-w-[45%] py-2.5 rounded-xl text-xs font-semibold transition-all border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Lvl 2: Impressions</button>
+                <button onclick="requestLevelChange(3)" id="btn-lvl-3" class="flex-1 min-w-[45%] py-2.5 rounded-xl text-xs font-semibold transition-all border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Lvl 3: Deep</button>
+                <button onclick="requestLevelChange(4)" id="btn-lvl-4" class="flex-1 min-w-[45%] py-2.5 rounded-xl text-xs font-semibold transition-all border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">Lvl 4: Reflect</button>
+            </div>
+
+            <!-- The Card Element -->
+            <div class="card-container" id="active-card-container">
+                <div class="game-card theme-l1" id="active-card" onclick="requestCardFlip()">
+                    <!-- Front Side (Uniform Back of Card) -->
+                    <div class="card-face card-front" data-level="1" id="card-front-content">
+                        <!-- Recreated Text-based Cover -->
+                        <div class="w-full h-full flex items-center justify-between p-8 text-left font-sans">
+                            <div class="flex flex-col justify-center mt-[-10%] max-w-[85%]">
+                                <div class="text-[2rem] font-bold text-white leading-[1.1] tracking-tighter mb-8">
+                                    Cards<br>Against<br>Bad<br>(Conversation)
+                                </div>
+                                <div class="text-[0.85rem] text-slate-300 font-normal leading-snug tracking-tight">
+                                    a card game for great<br>conversations
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Back Side (The Question) -->
+                    <div class="card-face card-back" data-level="1" id="card-back-content">
+                        <div class="level-badge">Level 1</div>
+                        <h2 class="back-level-title text-white/50 text-xs md:text-sm font-bold uppercase tracking-widest mt-12 mb-2">Embrace the Awkward</h2>
+                        <div class="flex-grow flex items-center justify-center w-full p-4">
+                            <p class="text-2xl md:text-3xl font-medium text-center text-white leading-tight font-serif" id="question-text">
+                                Loading question...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex justify-center gap-3 mt-6 w-full max-w-sm px-4 z-10">
+                <button onclick="toggleRules()" class="btn-primary flex-1 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-slate-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    Rules
+                </button>
+                <button id="btn-next-turn" onclick="requestNextTurn()" class="btn-primary flex-1 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 bg-white text-black border-white hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white">
+                    Next Turn
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mt-6 text-center">
+                 <button onclick="leaveGame()" class="text-slate-500 hover:text-red-400 text-sm underline transition-colors">Leave Game</button>
+            </div>
+
+        </div>
+
+        <!-- Rules Summary (Hidden by default) -->
+        <div id="rules-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
+            <div class="bg-black/60 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-2xl max-w-2xl w-full shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] relative overflow-y-auto max-h-[90vh]">
+                <button onclick="toggleRules()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                <h2 class="text-3xl font-bold mb-6 text-center text-white border-b border-white/10 pb-4">Game Rules</h2>
+                
+                <div class="space-y-6">
+                    <div class="flex items-start">
+                        <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold mr-4 shrink-0 shadow-lg shadow-blue-500/30">1</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-blue-400 mb-1">Embrace the Awkward</h3>
+                            <p class="text-slate-300 text-sm md:text-base">Level 1 is all about breaking the ice and making others feel comfortable. Creating a safe space for intentional conversation.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start">
+                        <div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold mr-4 shrink-0 shadow-lg shadow-emerald-500/30">2</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-emerald-400 mb-1">Impressions</h3>
+                            <p class="text-slate-300 text-sm md:text-base">Level 2 is about first impressions. Understanding how perception and connection differs wildly.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold mr-4 shrink-0 shadow-lg shadow-amber-500/30">3</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-amber-400 mb-1">Tell me More</h3>
+                            <p class="text-slate-300 text-sm md:text-base">Level 3 is about connection. These are questions that provoke the inner you and your real, deep thoughts.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start">
+                        <div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold mr-4 shrink-0 shadow-lg shadow-purple-500/30">4</div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-purple-400 mb-1">Reflection</h3>
+                            <p class="text-slate-300 text-sm md:text-base">Level 4 is about reflection. Taking time to reflect on what you've learned about the other person and what you understand more about yourself.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Custom Alert Modal -->
+        <div id="custom-alert" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-4">
+             <div class="bg-black/60 backdrop-blur-2xl border border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] text-center">
+                 <h3 id="alert-title" class="text-xl font-bold text-white mb-2">Notification</h3>
+                 <p id="alert-message" class="text-slate-300 mb-6"></p>
+                 <button onclick="closeAlert()" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-2 px-6 rounded-xl transition-colors w-full backdrop-blur-sm">OK</button>
+             </div>
+        </div>
+
+    </main>
+
+    <!-- Background Decoration -->
+    <div class="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-white/5 blur-[100px] pointer-events-none -z-10"></div>
+    <div class="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-white/5 blur-[120px] pointer-events-none -z-10"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment provided variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cards-against-bad-multi';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        let app, db, auth;
+        let currentUser = null;
+        let currentRoomCode = null;
+        let unsubscribeRoom = null;
+        let isHost = false;
+
+        // Ensure firebaseConfig is valid before initializing
+        if (Object.keys(firebaseConfig).length > 0) {
+             app = initializeApp(firebaseConfig);
+             db = getFirestore(app);
+             auth = getAuth(app);
+        } else {
+             showAlert("Configuration Error", "Firebase configuration is missing. Multiplayer will not work.");
+        }
+
+        // --- GAME DATA ---
+        const questions = {
+            1: [ 
+                "What is your go-to karaoke song?",
+                "If you had to eat one meal for the rest of your life, what would it be?",
+                "What's the weirdest habit you have?",
+                "What was your first email address or screen name?",
+                "If you were a wrestler, what would be your entrance theme song?",
+                "What is a silly fear you have?",
+                "Who was your first celebrity crush?",
+                "What's the most embarrassing trend you participated in?"
+            ],
+            2: [ 
+                "What was your first impression of me?",
+                "What do you think people misunderstand about you upon first meeting?",
+                "If someone were to describe you based only on your social media, what would they say?",
+                "What vibe do you think you give off to strangers?",
+                "Who in this group seems most likely to survive a zombie apocalypse?",
+                "Based on my style, what kind of music do you think I listen to?",
+                "What is a compliment you receive often?",
+                "What assumption do you think people make about you?"
+            ],
+            3: [ 
+                "What is a deeply held belief you've changed your mind about recently?",
+                "What is a dream you've let go of, and why?",
+                "When was the last time you felt truly understood by someone?",
+                "What is the hardest lesson you've had to learn in life?",
+                "What are you currently unlearning?",
+                "What is a compliment you received that you'll never forget?",
+                "What brings you the most genuine joy?",
+                "What are you most afraid of finding out about yourself?"
+            ],
+            4: [ 
+                "What is something you admire about the person to your left?",
+                "How has this conversation shifted your perspective?",
+                "What is a question you wish someone would ask you right now?",
+                "What is something you're taking away from this experience?",
+                "In one word, how do you feel right now?",
+                "What is something you realize you need to give yourself more grace for?",
+                "What part of yourself do you want to nurture more?",
+                "How can you be a better friend to yourself?"
+            ]
+        };
+
+        const levelInfo = {
+            1: { title: "Embrace the Awkward", desc: "Breaking the ice and making others feel comfortable. Creating a safe space for intentional conversation.", themeClass: "theme-l1" },
+            2: { title: "Impressions", desc: "First impressions. Understanding how perception and connection differs wildly.", themeClass: "theme-l2" },
+            3: { title: "Tell me More", desc: "Connection. These are questions that provoke the inner you and your real, deep thoughts.", themeClass: "theme-l3" },
+            4: { title: "Reflection", desc: "Taking time to reflect on what you've learned about the other person and what you understand more about yourself.", themeClass: "theme-l4" }
+        };
+
+        // --- LOCAL STATE ---
+        let localGameState = {
+            status: 'lobby', // lobby, waiting, playing
+            level: 1,
+            isFlipped: false,
+            currentQuestion: "Loading question...",
+            players: {},
+            turnOrder: [],
+            currentTurnIndex: 0,
+            cardKey: 0 // Used to trigger animations on sync
+        };
+        
+        let previousCardKey = 0;
+
+        // --- DOM ELEMENTS ---
+        const lobbyUI = document.getElementById('lobby-ui');
+        const waitingRoomUI = document.getElementById('waiting-room-ui');
+        const gameUI = document.getElementById('game-ui');
+        const roomCodeDisplay = document.getElementById('room-code-display');
+        const roomInfo = document.getElementById('room-info');
+        const lobbyError = document.getElementById('lobby-error');
+        const playerNameInput = document.getElementById('player-name-input');
+        
+        const cardContainer = document.getElementById('active-card-container');
+        const cardElement = document.getElementById('active-card');
+        const frontContent = document.getElementById('card-front-content');
+        const backContent = document.getElementById('card-back-content');
+        const questionText = document.getElementById('question-text');
+        const flipHint = document.getElementById('flip-hint');
+        
+        async function initAuth() {
+            if (!auth) return false;
+            
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                return new Promise((resolve) => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUser = user;
+                            resolve(true);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error("Auth error:", error);
+                showLobbyError("Failed to authenticate. Please try again.");
+                return false;
+            }
+        }
+
+        // Helper to get consistent room document reference based on RULE 1
+        function getRoomRef(code) {
+             return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+        }
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        async function createRoom(playerName) {
+             if (!currentUser) return;
+             
+             const code = generateRoomCode();
+             const roomRef = getRoomRef(code);
+             
+             const initialData = {
+                 createdAt: Date.now(),
+                 hostId: currentUser.uid,
+                 status: 'waiting', // waiting, playing
+                 level: 1,
+                 isFlipped: false,
+                 currentQuestion: getRandomQuestion(1, []),
+                 cardKey: Date.now(),
+                 usedQuestions: { 1: [], 2: [], 3: [], 4: [] },
+                 players: {
+                     [currentUser.uid]: {
+                         name: playerName,
+                         joinedAt: Date.now(),
+                         isActive: true
+                     }
+                 },
+                 turnOrder: [currentUser.uid],
+                 currentTurnIndex: 0
+             };
+
+             try {
+                 await setDoc(roomRef, initialData);
+                 currentRoomCode = code;
+                 isHost = true;
+                 joinLocalRoom(code);
+             } catch (error) {
+                 console.error("Error creating room:", error);
+                 showLobbyError("Failed to create room.");
+             }
+        }
+
+        async function joinRoom(code, playerName) {
+             if (!currentUser) return;
+             
+             code = code.toUpperCase();
+             const roomRef = getRoomRef(code);
+             
+             try {
+                 const docSnap = await getDoc(roomRef);
+                 
+                 if (!docSnap.exists()) {
+                     showLobbyError("Room not found.");
+                     return;
+                 }
+                 
+                 const data = docSnap.data();
+                 
+                 if (Object.keys(data.players).length >= 6 && !data.players[currentUser.uid]) {
+                     showLobbyError("Room is full (max 6 players).");
+                     return;
+                 }
+
+                 if (data.status === 'playing' && !data.players[currentUser.uid]) {
+                     showLobbyError("Game has already started.");
+                     return;
+                 }
+
+                 // Add player to room
+                 const turnOrder = [...data.turnOrder];
+                 if (!turnOrder.includes(currentUser.uid)) {
+                     turnOrder.push(currentUser.uid);
+                 }
+
+                 await updateDoc(roomRef, {
+                     [`players.${currentUser.uid}`]: {
+                         name: playerName,
+                         joinedAt: Date.now(),
+                         isActive: true
+                     },
+                     turnOrder: turnOrder
+                 });
+
+                 currentRoomCode = code;
+                 isHost = (data.hostId === currentUser.uid);
+                 joinLocalRoom(code);
+                 
+             } catch (error) {
+                 console.error("Error joining room:", error);
+                 showLobbyError("Error joining room.");
+             }
+        }
+
+        function joinLocalRoom(code) {
+             hideLobbyError();
+             lobbyUI.classList.add('hidden');
+             
+             // Setup listener
+             const roomRef = getRoomRef(code);
+             unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
+                 if (docSnap.exists()) {
+                     handleRoomUpdate(docSnap.data());
+                 } else {
+                     // Room deleted or kicked
+                     handleDisconnect("The room was closed.");
+                 }
+             }, (error) => {
+                 console.error("Listener error:", error);
+                 handleDisconnect("Lost connection to room.");
+             });
+        }
+
+        function handleRoomUpdate(data) {
+             // Update local state
+             localGameState = { ...localGameState, ...data };
+             
+             // Check if we are still active
+             if (!localGameState.players[currentUser.uid]?.isActive) {
+                  handleDisconnect("You left the game.");
+                  return;
+             }
+
+             // Update UI based on status
+             if (localGameState.status === 'waiting') {
+                 renderWaitingRoom();
+             } else if (localGameState.status === 'playing') {
+                 renderGameUI();
+             }
+        }
+
+        async function startGame() {
+             if (!isHost || !currentRoomCode || !currentUser) return;
+             
+             const roomRef = getRoomRef(currentRoomCode);
+             try {
+                 await updateDoc(roomRef, { status: 'playing' });
+             } catch(e) {
+                 console.error("Error starting game", e);
+             }
+        }
+
+        // Game actions triggered by UI
+        async function requestLevelChange(newLevel) {
+            if (!currentRoomCode || !currentUser || newLevel === localGameState.level) return;
+            
+            // Only host or current turn player can change level? Let's say anyone can.
+            
+            const roomRef = getRoomRef(currentRoomCode);
+            try {
+                // When level changes, generate a new question for that level immediately
+                const q = getRandomQuestion(newLevel, localGameState.usedQuestions[newLevel] || []);
+                
+                await updateDoc(roomRef, {
+                    level: newLevel,
+                    isFlipped: true,
+                    currentQuestion: q.text,
+                    cardKey: Date.now() // trigger slide animation
+                });
+            } catch(e) { console.error("Error changing level", e); }
+        }
+
+        async function requestCardFlip() {
+            if (!currentRoomCode || !currentUser) return;
+            
+            const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
+            
+            // Only the person whose turn it is (or host as fallback) can flip the card
+            if (!isMyTurn && !isHost) {
+                showAlert("Not Your Turn", "Only the active player can flip the card.");
+                return;
+            }
+
+            const roomRef = getRoomRef(currentRoomCode);
+            try {
+                // Toggle the flip state back and forth
+                await updateDoc(roomRef, {
+                    isFlipped: !localGameState.isFlipped
+                });
+            } catch(e) { console.error("Error flipping card", e); }
+        }
+
+        async function requestNextTurn() {
+            if (!currentRoomCode || !currentUser) return;
+            
+            const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
+            if (!isMyTurn && !isHost) {
+                 showAlert("Not Your Turn", "Wait for your turn to draw a new card.");
+                 return;
+            }
+
+            const roomRef = getRoomRef(currentRoomCode);
+            
+            try {
+                const nextTurnIndex = (localGameState.currentTurnIndex + 1) % localGameState.turnOrder.length;
+                const currentLevel = localGameState.level;
+                const usedQuestionsList = localGameState.usedQuestions[currentLevel] || [];
+                
+                const q = getRandomQuestion(currentLevel, usedQuestionsList);
+                
+                // Keep track of used questions (simple array of text strings to avoid index issues if we add/remove)
+                let newUsedList = [...usedQuestionsList, q.text];
+                if (newUsedList.length >= questions[currentLevel].length) {
+                    newUsedList = []; // Reset if all used
+                }
+
+                await updateDoc(roomRef, {
+                    currentTurnIndex: nextTurnIndex,
+                    isFlipped: true,
+                    currentQuestion: q.text,
+                    cardKey: Date.now(), // Trigger slide animation on all clients
+                    [`usedQuestions.${currentLevel}`]: newUsedList
+                });
+            } catch(e) { console.error("Error moving to next turn", e); }
+        }
+
+        function getRandomQuestion(level, usedList) {
+            const pool = questions[level];
+            
+            let available = pool.filter(q => !usedList.includes(q));
+            if (available.length === 0) available = pool; // fallback
+            
+            const randomIndex = Math.floor(Math.random() * available.length);
+            return { text: available[randomIndex] };
+        }
+
+        function renderWaitingRoom() {
+            waitingRoomUI.classList.remove('hidden');
+            waitingRoomUI.classList.add('flex');
+            gameUI.classList.add('hidden');
+            
+            document.getElementById('waiting-room-code').innerText = currentRoomCode;
+            roomInfo.classList.remove('hidden');
+            roomCodeDisplay.innerText = currentRoomCode;
+
+            const playerList = document.getElementById('waiting-player-list');
+            playerList.innerHTML = '';
+            
+            let count = 0;
+            const turnOrder = localGameState.turnOrder || [];
+            
+            // Render players in turn order
+            turnOrder.forEach(uid => {
+                const p = localGameState.players[uid];
+                if (p && p.isActive) {
+                    count++;
+                    const li = document.createElement('li');
+                    li.className = 'bg-white/5 px-4 py-3 rounded-lg text-white font-medium flex justify-between items-center border border-white/10';
+                    let nameHtml = p.name;
+                    if (uid === currentUser.uid) nameHtml += ' <span class="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded ml-2">You</span>';
+                    if (uid === localGameState.hostId) nameHtml += ' <span class="text-xs text-yellow-500 bg-yellow-900/30 px-2 py-0.5 rounded ml-2">Host</span>';
+                    
+                    li.innerHTML = `<span>${nameHtml}</span>`;
+                    playerList.appendChild(li);
+                }
+            });
+
+            document.getElementById('player-count').innerText = count;
+
+            const startBtn = document.getElementById('btn-start-game');
+            const hostMsg = document.getElementById('waiting-host-msg');
+            
+            if (isHost) {
+                startBtn.classList.remove('hidden');
+                hostMsg.classList.add('hidden');
+                startBtn.disabled = count < 1; // Need at least 1, though realistically 2
+            } else {
+                startBtn.classList.add('hidden');
+                hostMsg.classList.remove('hidden');
+            }
+        }
+
+        function renderGameUI() {
+            waitingRoomUI.classList.add('hidden');
+            waitingRoomUI.classList.remove('flex');
+            gameUI.classList.remove('hidden');
+            gameUI.classList.add('flex');
+            
+            // 1. Update Turn Announcer & Player List
+            const activeUid = localGameState.turnOrder[localGameState.currentTurnIndex];
+            const isMyTurn = activeUid === currentUser.uid;
+            const activePlayer = localGameState.players[activeUid];
+            
+            const announcer = document.getElementById('turn-announcement');
+            const announcerSpan = announcer.querySelector('span');
+            
+            if (isMyTurn) {
+                announcerSpan.innerText = "It's your turn";
+                announcerSpan.className = "inline-block bg-white px-6 py-2 rounded-full text-black text-sm font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse";
+            } else {
+                announcerSpan.innerText = `Waiting for ${activePlayer?.name || 'someone'}...`;
+                announcerSpan.className = "inline-block bg-white/5 px-6 py-2 rounded-full border border-white/10 text-slate-400 text-sm font-medium";
+            }
+
+            // Render Player badges
+            const playerListContainer = document.getElementById('game-player-list');
+            playerListContainer.innerHTML = '';
+            
+            localGameState.turnOrder.forEach((uid, index) => {
+                const p = localGameState.players[uid];
+                if (p && p.isActive) {
+                    const isCurrent = index === localGameState.currentTurnIndex;
+                    const badge = document.createElement('div');
+                    
+                    let baseClasses = "player-badge px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 border whitespace-nowrap ";
+                    if (isCurrent) {
+                        baseClasses += "bg-white/10 text-white border-white/30 player-active shadow-[0_0_10px_rgba(255,255,255,0.1)]";
+                    } else {
+                        baseClasses += "bg-transparent text-slate-500 border-white/5";
+                    }
+                    
+                    badge.className = baseClasses;
+                    
+                    let nameHtml = p.name;
+                    if (uid === currentUser.uid) nameHtml += " (You)";
+                    
+                    badge.innerHTML = `
+                        <div class="w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-white shadow-[0_0_5px_white]' : 'bg-slate-700'}"></div>
+                        ${nameHtml}
+                    `;
+                    playerListContainer.appendChild(badge);
+                }
+            });
+
+            // 2. Update Level Buttons
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById(`btn-lvl-${i}`);
+                if (i === localGameState.level) {
+                    btn.classList.add('bg-white', 'text-black', 'border-white', 'shadow-[0_0_15px_rgba(255,255,255,0.2)]');
+                    btn.classList.remove('bg-white/5', 'text-slate-400', 'border-white/10');
+                } else {
+                    btn.classList.remove('bg-white', 'text-black', 'border-white', 'shadow-[0_0_15px_rgba(255,255,255,0.2)]');
+                    btn.classList.add('bg-white/5', 'text-slate-400', 'border-white/10');
+                }
+            }
+
+            // 3. Update Card Data
+            const info = levelInfo[localGameState.level];
+            
+            // Check if we need to animate a new card sliding in
+            if (localGameState.cardKey !== previousCardKey) {
+                 animateCardTransition(info, localGameState.currentQuestion);
+                 previousCardKey = localGameState.cardKey;
+            } else {
+                 // Just update content instantly (e.g., initial load or reconnect)
+                 updateCardDOM(info, localGameState.currentQuestion);
+            }
+            
+            // 5. Update Controls
+            const nextBtn = document.getElementById('btn-next-turn');
+            nextBtn.disabled = !isMyTurn && !isHost;
+        }
+
+        function updateCardDOM(info, question) {
+             cardElement.className = `game-card ${info.themeClass} ${localGameState.isFlipped ? 'is-flipped' : ''}`;
+             
+             frontContent.setAttribute('data-level', localGameState.level);
+             backContent.setAttribute('data-level', localGameState.level);
+
+             backContent.querySelector('.level-badge').innerText = `Level ${localGameState.level}`;
+             
+             // Update the level title on the question side
+             const backLevelTitle = backContent.querySelector('.back-level-title');
+             if(backLevelTitle) backLevelTitle.innerText = info.title;
+
+             questionText.innerText = question;
+        }
+
+        function animateCardTransition(info, question) {
+            // Apply animations to the CONTAINER, not the CARD, to prevent overriding the 3D flip transform
+            if (cardContainer.classList.contains('sliding-out') || cardContainer.classList.contains('sliding-in')) return;
+
+            cardContainer.classList.add('sliding-out');
+
+            setTimeout(() => {
+                updateCardDOM(info, question);
+                
+                cardContainer.classList.remove('sliding-out');
+                cardContainer.classList.add('sliding-in');
+                
+                setTimeout(() => {
+                    cardContainer.classList.remove('sliding-in');
+                }, 500);
+
+            }, 500);
+        }
+
+        window.leaveGame = async function() {
+            if (currentRoomCode && currentUser) {
+                 const roomRef = getRoomRef(currentRoomCode);
+                 try {
+                     // Mark user inactive
+                     await updateDoc(roomRef, {
+                         [`players.${currentUser.uid}.isActive`]: false
+                     });
+                 } catch(e) { console.error("Error leaving", e); }
+            }
+            handleDisconnect("You left the game.");
+        }
+
+        function handleDisconnect(message) {
+             if (unsubscribeRoom) {
+                 unsubscribeRoom();
+                 unsubscribeRoom = null;
+             }
+             currentRoomCode = null;
+             isHost = false;
+             roomInfo.classList.add('hidden');
+             
+             gameUI.classList.add('hidden');
+             gameUI.classList.remove('flex');
+             waitingRoomUI.classList.add('hidden');
+             waitingRoomUI.classList.remove('flex');
+             
+             lobbyUI.classList.remove('hidden');
+             if(message) showAlert("Disconnected", message);
+        }
+
+        function showLobbyError(msg) {
+            lobbyError.innerText = msg;
+            lobbyError.classList.remove('hidden');
+        }
+        function hideLobbyError() {
+            lobbyError.classList.add('hidden');
+        }
+
+        window.toggleRules = function() {
+            const rulesModal = document.getElementById('rules-modal');
+            rulesModal.classList.toggle('hidden');
+            if (!rulesModal.classList.contains('hidden')) {
+                rulesModal.classList.add('flex');
+            } else {
+                rulesModal.classList.remove('flex');
+            }
+        }
+        
+        window.showAlert = function(title, message) {
+             document.getElementById('alert-title').innerText = title;
+             document.getElementById('alert-message').innerText = message;
+             const m = document.getElementById('custom-alert');
+             m.classList.remove('hidden');
+             m.classList.add('flex');
+        }
+        
+        window.closeAlert = function() {
+             const m = document.getElementById('custom-alert');
+             m.classList.add('hidden');
+             m.classList.remove('flex');
+        }
+
+        window.copyRoomCode = function() {
+            if (!currentRoomCode) return;
+            const tempInput = document.createElement("input");
+            tempInput.value = currentRoomCode;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            
+            // Visual feedback
+            const codeEl = document.getElementById('waiting-room-code');
+            const originalColor = codeEl.className;
+            codeEl.className = codeEl.className.replace('text-blue-400', 'text-green-400');
+            setTimeout(() => {
+                codeEl.className = originalColor;
+            }, 500);
+        }
+
+        // Attach event listeners to DOM
+        document.getElementById('btn-create-room').addEventListener('click', () => {
+            const name = playerNameInput.value.trim() || 'Player';
+            createRoom(name);
+        });
+
+        document.getElementById('btn-join-room').addEventListener('click', () => {
+            const code = document.getElementById('room-code-input').value.trim();
+            const name = playerNameInput.value.trim() || 'Player';
+            if (code.length === 4) {
+                joinRoom(code, name);
+            } else {
+                showLobbyError("Please enter a valid 4-character room code.");
+            }
+        });
+        
+        document.getElementById('btn-start-game').addEventListener('click', startGame);
+
+        // Expose functions needed by HTML attributes
+        window.requestLevelChange = requestLevelChange;
+        window.requestCardFlip = requestCardFlip;
+        window.requestNextTurn = requestNextTurn;
+
+        // Initialize App
+        window.onload = async function() {
+            const authSuccess = await initAuth();
+            if (authSuccess) {
+                // Restore locally saved name if available
+                const savedName = localStorage.getItem('cab_player_name');
+                if (savedName) playerNameInput.value = savedName;
+                
+                playerNameInput.addEventListener('change', (e) => {
+                    localStorage.setItem('cab_player_name', e.target.value);
+                });
+            }
+        };
+
+    </script>
+</body>
+</html>
