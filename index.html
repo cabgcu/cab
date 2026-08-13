@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Cards Against Bad (Conversation)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
@@ -16,6 +20,11 @@
             --text-color: #f8fafc;
         }
 
+        html {
+            height: 100%;
+            -webkit-text-size-adjust: 100%;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
@@ -24,10 +33,37 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            min-height: 100dvh;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         h1, h2, .card-title {
             font-family: 'Playfair Display', serif;
+        }
+
+        /* Prevent iOS Safari from auto-zooming when a text input is focused */
+        input {
+            font-size: 16px;
+        }
+
+        /* Hide scrollbar on the horizontally-scrolling player list */
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        button, .game-card {
+            touch-action: manipulation;
+        }
+
+        .game-card {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         /* Card Container and Perspective */
@@ -36,8 +72,16 @@
             width: 100%;
             max-width: 320px;
             height: 450px;
+            height: min(450px, 62vh);
             margin: 2rem auto;
             position: relative;
+        }
+
+        @media (max-width: 380px) {
+            .card-container {
+                max-width: 280px;
+                margin: 1rem auto;
+            }
         }
 
         /* The Card Object */
@@ -147,6 +191,13 @@
         
         .game-header {
              background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 100%);
+             padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 1rem max(1rem, env(safe-area-inset-left));
+        }
+
+        @media (min-width: 768px) {
+            .game-header {
+                padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) 1.5rem max(1.5rem, env(safe-area-inset-left));
+            }
         }
 
         /* Multiplayer Styles */
@@ -169,7 +220,7 @@
 <body class="antialiased">
 
     <!-- Header -->
-    <header class="game-header w-full p-4 md:p-6 text-center z-10 sticky top-0 flex flex-col md:flex-row justify-between items-center">
+    <header class="game-header w-full text-center z-10 sticky top-0 flex flex-col md:flex-row justify-between items-center">
         <div>
             <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white mb-1 shadow-sm">
                 Cards Against Bad <span class="text-gray-400 italic font-light text-lg md:text-xl inline-block ml-2">(Conversation)</span>
@@ -184,7 +235,7 @@
     <main class="flex-grow flex flex-col items-center justify-start p-4 w-full max-w-4xl mx-auto relative z-0 mt-4 md:mt-10">
         
         <!-- Lobby UI -->
-        <div id="lobby-ui" class="w-full max-w-md bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex flex-col items-center gap-6">
+        <div id="lobby-ui" class="w-full max-w-md bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex flex-col items-center gap-6">
             <h2 class="text-2xl font-bold text-white">Join the Game</h2>
             
             <div class="w-full space-y-4">
@@ -217,12 +268,12 @@
         </div>
 
         <!-- Waiting Room UI -->
-        <div id="waiting-room-ui" class="hidden w-full max-w-md bg-white/5 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex-col items-center gap-6">
+        <div id="waiting-room-ui" class="hidden w-full max-w-md bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] flex-col items-center gap-6">
             <h2 class="text-2xl font-bold text-white text-center">Waiting Room</h2>
             <div class="text-center mb-2">
                 <p class="text-slate-400 text-sm mb-1">Share this code with friends:</p>
                 <div class="flex items-center justify-center gap-2">
-                    <span id="waiting-room-code" class="text-4xl font-mono font-bold text-white tracking-widest bg-black/50 px-4 py-2 rounded-lg border border-white/10"></span>
+                    <span id="waiting-room-code" class="text-3xl sm:text-4xl font-mono font-bold text-white tracking-widest bg-black/50 px-4 py-2 rounded-lg border border-white/10"></span>
                     <button onclick="copyRoomCode()" class="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10" title="Copy Code">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
