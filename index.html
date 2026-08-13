@@ -265,6 +265,13 @@
             </div>
 
             <div id="lobby-error" class="text-red-400 text-sm hidden bg-red-900/30 p-3 rounded-lg w-full text-center border border-red-800/50"></div>
+
+            <div id="game-history-section" class="hidden w-full pt-4 border-t border-white/10">
+                <h3 class="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Your Recent Games</h3>
+                <ul id="game-history-list" class="space-y-2 max-h-48 overflow-y-auto">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
         </div>
 
         <!-- Waiting Room UI -->
@@ -488,6 +495,13 @@
             };
         }
 
+        // Escapes user-supplied text (player names) before it's placed in innerHTML.
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
         // --- GAME DATA ---
         const questions = {
             1: [ 
@@ -643,10 +657,7 @@
                      return;
                  }
 
-                 if (data.status === 'playing' && !players[currentUser.uid]) {
-                     showLobbyError("Game has already started.");
-                     return;
-                 }
+                 // Players can join a room that's already playing, not just waiting ones.
 
                  // Add player to room
                  const turnOrder = [...(data.turn_order || [])];
@@ -779,7 +790,7 @@
             if (!currentRoomCode || !currentUser) return;
 
             const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
-            if (!isMyTurn && !isHost) {
+            if (!isMyTurn) {
                  showAlert("Not Your Turn", "Wait for your turn to draw a new card.");
                  return;
             }
@@ -814,7 +825,7 @@
             if (!currentRoomCode || !currentUser) return;
 
             const isMyTurn = localGameState.turnOrder[localGameState.currentTurnIndex] === currentUser.uid;
-            if (!isMyTurn && !isHost) {
+            if (!isMyTurn) {
                  showAlert("Not Your Turn", "Only the active player can skip the question.");
                  return;
             }
@@ -875,7 +886,7 @@
                     count++;
                     const li = document.createElement('li');
                     li.className = 'bg-white/5 px-4 py-3 rounded-lg text-white font-medium flex justify-between items-center border border-white/10';
-                    let nameHtml = p.name;
+                    let nameHtml = escapeHtml(p.name);
                     if (uid === currentUser.uid) nameHtml += ' <span class="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded ml-2">You</span>';
                     if (uid === localGameState.hostId) nameHtml += ' <span class="text-xs text-yellow-500 bg-yellow-900/30 px-2 py-0.5 rounded ml-2">Host</span>';
                     
@@ -940,7 +951,7 @@
                     
                     badge.className = baseClasses;
                     
-                    let nameHtml = p.name;
+                    let nameHtml = escapeHtml(p.name);
                     if (uid === currentUser.uid) nameHtml += " (You)";
                     
                     badge.innerHTML = `
@@ -977,10 +988,10 @@
             
             // 5. Update Controls
             const nextBtn = document.getElementById('btn-next-turn');
-            nextBtn.disabled = !isMyTurn && !isHost;
+            nextBtn.disabled = !isMyTurn;
 
             const skipBtn = document.getElementById('btn-skip-question');
-            skipBtn.disabled = !isMyTurn && !isHost;
+            skipBtn.disabled = !isMyTurn;
         }
 
         function updateCardDOM(info, question) {
@@ -1048,6 +1059,72 @@
              
              lobbyUI.classList.remove('hidden');
              if(message) showAlert("Disconnected", message);
+             loadGameHistory();
+        }
+
+        // Fetches rooms this browser's player has ever been part of, so they
+        // can see who they played with and rejoin a game in progress.
+        async function loadGameHistory() {
+            if (!supabase || !currentUser) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('rooms')
+                    .select('*')
+                    .contains('players', { [currentUser.uid]: {} })
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                if (error) throw error;
+                renderGameHistory(data || []);
+            } catch (e) {
+                console.error("Error loading game history", e);
+            }
+        }
+
+        function renderGameHistory(rooms) {
+            const section = document.getElementById('game-history-section');
+            const list = document.getElementById('game-history-list');
+            list.innerHTML = '';
+
+            if (!rooms.length) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            rooms.forEach(row => {
+                const players = row.players || {};
+                const names = Object.entries(players)
+                    .map(([uid, p]) => uid === currentUser.uid ? `${p.name} (You)` : p.name)
+                    .join(', ');
+
+                const statusLabel = row.status === 'playing' ? 'In Progress' : 'Waiting';
+                const statusClass = row.status === 'playing'
+                    ? 'text-emerald-400 bg-emerald-900/30'
+                    : 'text-slate-400 bg-white/10';
+
+                const li = document.createElement('li');
+                li.className = 'bg-white/5 px-3 py-2.5 rounded-lg border border-white/10 flex items-center justify-between gap-3';
+                li.innerHTML = `
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-bold text-white text-sm">${escapeHtml(row.code)}</span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${statusClass}">${statusLabel}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 truncate mt-0.5">${escapeHtml(names)}</p>
+                    </div>
+                    <button data-code="${escapeHtml(row.code)}" class="btn-rejoin shrink-0 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors">Rejoin</button>
+                `;
+                list.appendChild(li);
+            });
+
+            list.querySelectorAll('.btn-rejoin').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const name = getRequiredPlayerName();
+                    if (!name) return;
+                    joinRoom(btn.getAttribute('data-code'), name);
+                });
+            });
         }
 
         function showLobbyError(msg) {
@@ -1100,15 +1177,28 @@
             }, 500);
         }
 
+        // Returns the trimmed player name, or null (after showing an error) if none was entered.
+        function getRequiredPlayerName() {
+            const name = playerNameInput.value.trim();
+            if (!name) {
+                showLobbyError("Please enter your name first.");
+                playerNameInput.focus();
+                return null;
+            }
+            return name;
+        }
+
         // Attach event listeners to DOM
         document.getElementById('btn-create-room').addEventListener('click', () => {
-            const name = playerNameInput.value.trim() || 'Player';
+            const name = getRequiredPlayerName();
+            if (!name) return;
             createRoom(name);
         });
 
         document.getElementById('btn-join-room').addEventListener('click', () => {
+            const name = getRequiredPlayerName();
+            if (!name) return;
             const code = document.getElementById('room-code-input').value.trim();
-            const name = playerNameInput.value.trim() || 'Player';
             if (code.length === 4) {
                 joinRoom(code, name);
             } else {
@@ -1135,6 +1225,8 @@
                 playerNameInput.addEventListener('change', (e) => {
                     localStorage.setItem('cab_player_name', e.target.value);
                 });
+
+                loadGameHistory();
             }
         };
 
