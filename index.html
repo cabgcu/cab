@@ -303,6 +303,21 @@
             <p id="waiting-host-msg" class="text-sm text-slate-400 text-center italic">Waiting for host to start...</p>
         </div>
 
+        <!-- Intro Cards: shown once per room, right before gameplay begins -->
+        <div id="intro-ui" class="hidden w-full max-w-md flex-col items-center gap-6">
+            <div class="w-full bg-white/5 backdrop-blur-xl p-6 sm:p-8 rounded-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] min-h-[340px] flex flex-col">
+                <h2 id="intro-card-title" class="text-2xl font-bold text-white mb-4 text-center"></h2>
+                <div id="intro-card-body" class="flex-grow flex items-center"></div>
+            </div>
+
+            <div id="intro-dots" class="flex items-center justify-center gap-2"></div>
+
+            <div class="flex justify-center gap-3 w-full px-4">
+                <button id="btn-intro-prev" onclick="introPrev()" class="btn-primary flex-1 py-3 rounded-xl text-sm font-semibold text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed">Back</button>
+                <button id="btn-intro-next" onclick="introNext()" class="btn-primary flex-1 py-3 rounded-xl text-sm font-semibold bg-white text-black border-white hover:bg-gray-200">Next</button>
+            </div>
+        </div>
+
         <!-- Main Game Area (Hidden initially) -->
         <div id="game-ui" class="hidden w-full flex-col items-center">
             
@@ -460,6 +475,14 @@
         let currentRoomCode = null;
         let roomChannel = null;
         let isHost = false;
+
+        // Intro cards (how to play / levels / creators' note) are shown once
+        // per room, the first time a client sees that room's status go to
+        // 'playing'. Tracked in memory only, so a fresh page load will show
+        // them again for a room that's already in progress.
+        let introActive = false;
+        let introSeenForRoom = null;
+        let introSlideIndex = 0;
 
         let supabase;
         try {
@@ -804,6 +827,46 @@
             4: { title: "Reflection", desc: "Taking time to reflect on what you've learned about the other person and what you understand more about yourself.", themeClass: "theme-l4" }
         };
 
+        // Intro card content shown once per room before gameplay starts.
+        // Static, app-authored copy — safe to set via innerHTML.
+        const introSlides = [
+            {
+                title: "How to Play",
+                bodyHtml: `
+                    <ul class="text-left space-y-3 text-slate-200 text-sm md:text-base leading-relaxed list-disc list-inside">
+                        <li>Participants start at Level 1 and move their way to Level 4.</li>
+                        <li>Go back and forth asking and answering questions.</li>
+                        <li>The person asking can choose to ask any 1 question from the card.</li>
+                        <li>Each person must draw at least 7 cards before advancing to the next level.</li>
+                        <li>Each player gets one "Let's Get Uncomfortable" per level &mdash; play it when you want someone to share more on a question.</li>
+                    </ul>
+                `
+            },
+            {
+                title: "The Four Levels",
+                bodyHtml: `
+                    <ol class="text-left space-y-4 text-slate-200 text-sm md:text-base leading-relaxed">
+                        <li><span class="font-semibold text-white">1. Embrace the Awkward</span><br>Breaking the ice and making others feel comfortable. Creating a safe space for intentional conversation.</li>
+                        <li><span class="font-semibold text-white">2. Impressions</span><br>First impressions. Understanding how perception and connection differs wildly.</li>
+                        <li><span class="font-semibold text-white">3. Tell Me More</span><br>Connection. Questions that provoke the inner you and your real, deep thoughts.</li>
+                        <li><span class="font-semibold text-white">4. Reflection</span><br>Taking time to reflect on what you've learned about the other person, and what you understand more about yourself.</li>
+                    </ol>
+                `
+            },
+            {
+                title: "A Note From the Creators",
+                bodyHtml: `
+                    <p class="text-slate-200 text-sm md:text-base leading-relaxed italic text-center">
+                        We've come to see that there are two ways to play this game...
+                        <br><br>
+                        You can play it safe, or you can play to grow.
+                        <br><br>
+                        <span class="text-white not-italic font-semibold">The latter is how you win.</span>
+                    </p>
+                `
+            }
+        ];
+
         // --- LOCAL STATE ---
         let localGameState = {
             status: 'lobby', // lobby, waiting, playing
@@ -822,6 +885,7 @@
         const lobbyUI = document.getElementById('lobby-ui');
         const waitingRoomUI = document.getElementById('waiting-room-ui');
         const gameUI = document.getElementById('game-ui');
+        const introUI = document.getElementById('intro-ui');
         const roomCodeDisplay = document.getElementById('room-code-display');
         const roomInfo = document.getElementById('room-info');
         const lobbyError = document.getElementById('lobby-error');
@@ -982,9 +1046,63 @@
              if (localGameState.status === 'waiting') {
                  renderWaitingRoom();
              } else if (localGameState.status === 'playing') {
-                 renderGameUI();
+                 if (introSeenForRoom !== currentRoomCode) {
+                     if (!introActive) showIntroCards();
+                 } else {
+                     renderGameUI();
+                 }
              }
         }
+
+        function showIntroCards() {
+            introActive = true;
+            introSlideIndex = 0;
+
+            waitingRoomUI.classList.add('hidden');
+            waitingRoomUI.classList.remove('flex');
+            gameUI.classList.add('hidden');
+            gameUI.classList.remove('flex');
+
+            introUI.classList.remove('hidden');
+            introUI.classList.add('flex');
+
+            renderIntroSlide();
+        }
+
+        function renderIntroSlide() {
+            const slide = introSlides[introSlideIndex];
+            document.getElementById('intro-card-title').innerText = slide.title;
+            document.getElementById('intro-card-body').innerHTML = slide.bodyHtml;
+
+            const dots = document.getElementById('intro-dots');
+            dots.innerHTML = introSlides.map((_, i) =>
+                `<span class="inline-block h-1.5 w-1.5 rounded-full ${i === introSlideIndex ? 'bg-white' : 'bg-white/20'}"></span>`
+            ).join('');
+
+            document.getElementById('btn-intro-prev').disabled = introSlideIndex === 0;
+            document.getElementById('btn-intro-next').innerText =
+                introSlideIndex === introSlides.length - 1 ? "Let's Play" : 'Next';
+        }
+
+        window.introPrev = function() {
+            if (introSlideIndex > 0) {
+                introSlideIndex--;
+                renderIntroSlide();
+            }
+        };
+
+        window.introNext = function() {
+            if (introSlideIndex < introSlides.length - 1) {
+                introSlideIndex++;
+                renderIntroSlide();
+            } else {
+                introActive = false;
+                introSeenForRoom = currentRoomCode;
+                introUI.classList.add('hidden');
+                introUI.classList.remove('flex');
+                renderGameUI();
+            }
+        };
 
         async function startGame() {
              if (!isHost || !currentRoomCode || !currentUser) return;
@@ -1306,13 +1424,16 @@
              }
              currentRoomCode = null;
              isHost = false;
+             introActive = false;
              roomInfo.classList.add('hidden');
-             
+
              gameUI.classList.add('hidden');
              gameUI.classList.remove('flex');
              waitingRoomUI.classList.add('hidden');
              waitingRoomUI.classList.remove('flex');
-             
+             introUI.classList.add('hidden');
+             introUI.classList.remove('flex');
+
              lobbyUI.classList.remove('hidden');
              if(message) showAlert("Disconnected", message);
         }
