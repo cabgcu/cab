@@ -301,7 +301,7 @@
             </div>
 
             <div class="w-full">
-                <h3 class="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Players (<span id="player-count">1</span>/6)</h3>
+                <h3 class="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Players (<span id="player-count">1</span>/12)</h3>
                 <ul id="waiting-player-list" class="space-y-2 mb-6">
                     <!-- Populated by JS -->
                 </ul>
@@ -1003,8 +1003,8 @@
 
                  const players = data.players || {};
 
-                 if (Object.keys(players).length >= 6 && !players[currentUser.uid]) {
-                     showLobbyError("Room is full (max 6 players).");
+                 if (Object.keys(players).length >= 12 && !players[currentUser.uid]) {
+                     showLobbyError("Room is full (max 12 players).");
                      return;
                  }
 
